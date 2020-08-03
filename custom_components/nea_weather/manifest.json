@@ -1,0 +1,9 @@
+{
+  "domain": "nea_weather",
+  "name": "NEA Weather",
+  "documentation": "https://data.gov.sg/dataset/weather-forecast",
+  "dependencies": [],
+  "codeowners": [ "@mrrussellong" ],
+  "requirements": [],
+  "config_flow": true
+}
