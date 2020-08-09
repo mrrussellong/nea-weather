@@ -63,6 +63,8 @@ class NEAWeather(WeatherEntity):
             return "windy"
         elif _input_str.find("cloud") != -1:
             return "cloudy"
+        elif _input_str.find("fair") != -1:
+            return "sunny"
         else:
             return _input_str
 
