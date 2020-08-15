@@ -78,6 +78,10 @@ class NEAWeather(WeatherEntity):
         """Return the current condition."""
         reading = self.nea_data.get_reading(self.location_name)
         return reading
+    
+    @property
+    def state(self):
+        return self.condition
 
     # Now implement the WeatherEntity interface
     @property
