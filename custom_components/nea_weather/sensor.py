@@ -2,6 +2,7 @@
 import datetime
 import json
 import logging
+import time
 import pytz
 import requests
 import voluptuous as vol
@@ -59,8 +60,7 @@ class NEACurrentData:
 
     def get_today_reading(self, condition):
         """Return today's reading"""
-        condition_readings = self._today_data[condition]
-        return condition_readings
+        return self._today_data[condition]
 
     def get_forecast_reading(self):
         """Return forecast reading"""
@@ -68,11 +68,14 @@ class NEACurrentData:
 
     def get_reading(self, area):
         """Return reading"""
+        if self._data is None:
+            return None
+
         for entry in self._data:
             try:
-                if entry["area"] != area:
+                if entry["Name"].lower() != area.lower():
                     continue
-                return entry["forecast"]
+                return entry["Forecast"]
             except ValueError as err:
                 _LOGGER.error("Check NEA %s", err.args)
                 raise
@@ -83,38 +86,33 @@ class NEACurrentData:
             return True
 
         now = dt_util.utcnow()
-        update_due_at = self.last_updated.replace(tzinfo=pytz.UTC) + datetime.timedelta(minutes=35)
+        update_due_at = self.last_updated.replace(tzinfo=pytz.UTC) + datetime.timedelta(minutes=2)
         return now > update_due_at
 
     @Throttle(MIN_TIME_BETWEEN_UPDATES)
     def update(self):
         """Get the latest data from NEA."""
         if not self.should_update():
-            _LOGGER.debug(
-                "NEA data was updated %s minutes ago, skipping update as"
-                " < 35 minutes, Now: %s, LastUpdate: %s",
-                (dt_util.utcnow() - self.last_updated.replace(tzinfo=pytz.UTC)),
-                dt_util.utcnow(),
-                self.last_updated.replace(tzinfo=pytz.UTC),
-            )
             return
-
         try:
-            two_hour_forecast = "https://api.data.gov.sg/v1/environment/2-hour-weather-forecast"
+            two_hour_forecast = "https://www.nea.gov.sg/api/WeatherForecast/forecast24hrnowcast2hrs/" + \
+                str(int(time.time()))
             two_hour_result = requests.get(two_hour_forecast, timeout=10).json()
-            self._data = two_hour_result["items"][0]["forecasts"]
+            if (two_hour_result is not None and two_hour_result["Channel2HrForecast"] is not None and
+                two_hour_result["Channel2HrForecast"]["Item"] is not None and
+                two_hour_result["Channel2HrForecast"]["Item"]["WeatherForecast"] is not None and
+                two_hour_result["Channel2HrForecast"]["Item"]["WeatherForecast"]["Area"] is not None):
+                self._data = two_hour_result["Channel2HrForecast"]["Item"]["WeatherForecast"]["Area"]
 
-            four_day_forecast = "https://api.data.gov.sg/v1/environment/4-day-weather-forecast"
-            four_day_result = requests.get(four_day_forecast, timeout=10).json()
-            self._forecast_data = four_day_result["items"][0]["forecasts"]
+            if (two_hour_result is not None and two_hour_result["Channel24HrForecast"] is not None and
+                    two_hour_result["Channel24HrForecast"]["Main"] is not None):
+                self._today_data = two_hour_result["Channel24HrForecast"]["Main"]
 
-            today_forecast = "https://api.data.gov.sg/v1/environment/24-hour-weather-forecast"
-            today_result = requests.get(today_forecast, timeout=10).json()
-            self._today_data = today_result["items"][0]["general"]
+            four_day_forecast = "https://www.nea.gov.sg/api/Weather4DayOutlook/GetData/" + \
+                str(int(time.time()))
+            self._forecast_data = requests.get(four_day_forecast, timeout=10).json()
 
-            self.last_updated = dt.strptime(
-                today_result["items"][0]["update_timestamp"][:-3],
-                '%Y-%m-%dT%H:%M:%S%Z')
+            self.last_updated = dt_util.utcnow()
             return
 
         except ValueError as err:
