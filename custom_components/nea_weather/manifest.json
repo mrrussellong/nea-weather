@@ -4,6 +4,8 @@
   "documentation": "https://data.gov.sg/dataset/weather-forecast",
   "dependencies": [],
   "codeowners": [ "@mrrussellong" ],
+  "version": "1.0.0",
   "requirements": [],
+  "iot_class": "cloud_polling",
   "config_flow": true
 }

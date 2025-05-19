@@ -25,16 +25,17 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
     vol.Optional(CONF_NAME): cv.string,
 })
 
-def setup_platform(hass, config, add_entities, discovery_info=None):
+async def async_setup_platform(hass, config, async_add_entities, discovery_info=None):
+    """Set up the NEA sensor platform."""
     nea_data = NEACurrentData()
 
     try:
-        nea_data.update()
+        await hass.async_add_executor_job(nea_data.update)
     except ValueError as err:
         _LOGGER.error("Received error from NEA Current: %s", err)
         return
 
-    add_entities([NEACurrentData()])
+    async_add_entities([NEACurrentData()])
 
 
 class NEACurrentData:

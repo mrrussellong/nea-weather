@@ -26,18 +26,18 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
 )
 
 
-def setup_platform(hass, config, add_entities, discovery_info=None):
+async def async_setup_platform(hass, config, async_add_entities, discovery_info=None):
     """Set up the NEA weather platform."""
     _LOGGER.debug("initialising NEA Weather2 %s", config.get(CONF_NAME))
 
     nea_data = NEACurrentData()
     try:
-        nea_data.update()
+        await hass.async_add_executor_job(nea_data.update)
     except ValueError as err:
         _LOGGER.error("Received error from NEA Current: %s", err)
         return False
 
-    add_entities([NEAWeather(nea_data, config.get(CONF_NAME))], True)
+    async_add_entities([NEAWeather(nea_data, config.get(CONF_NAME))], True)
 
 
 class NEAWeather(WeatherEntity):
@@ -48,9 +48,9 @@ class NEAWeather(WeatherEntity):
         self.nea_data = nea_data
         self.location_name = location_name
 
-    def update(self):
+    async def async_update(self):
         """Update current conditions."""
-        self.nea_data.update()
+        await self.hass.async_add_executor_job(self.nea_data.update)
 
     def convert_to_forecast(self, input_str):
         _input_str = str(input_str).lower()
@@ -95,7 +95,7 @@ class NEAWeather(WeatherEntity):
     # lr light rain
     def convert_shortform(self, input_str):
         input_str = str(input_str).lower()
-        _LOGGER.warn("_data input_str - NEA_v2 %s ", input_str)
+        _LOGGER.warning("_data input_str - NEA_v2 %s", input_str)
         if input_str == "cl" or input_str == "pc" or input_str == "pn":
             return "cloudy"
         elif input_str == "tl": # thundery showers
