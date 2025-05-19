@@ -9,11 +9,10 @@ import voluptuous as vol
 import homeassistant.helpers.config_validation as cv
 import homeassistant.util.dt as dt_util
 
-from homeassistant.components.sensor import PLATFORM_SCHEMA
+from homeassistant.components.sensor import PLATFORM_SCHEMA, SensorEntity
 from homeassistant.const import (
     CONF_NAME,
 )
-from homeassistant.helpers.entity import Entity
 from homeassistant.util import Throttle
 from datetime import datetime as dt
 
@@ -35,7 +34,7 @@ async def async_setup_platform(hass, config, async_add_entities, discovery_info=
         _LOGGER.error("Received error from NEA Current: %s", err)
         return
 
-    async_add_entities([NEACurrentData()])
+    async_add_entities([NEACurrentSensor(nea_data, config.get(CONF_NAME))])
 
 
 class NEACurrentData:
@@ -122,3 +121,26 @@ class NEACurrentData:
             self._forecast_data = None
             self._today_data = None
             raise
+
+
+class NEACurrentSensor(SensorEntity):
+    """Sensor entity that exposes NEA current weather data."""
+
+    def __init__(self, nea_data, location_name):
+        self.nea_data = nea_data
+        self.location_name = location_name
+        self._attr_name = f"NEA Current {location_name or ''}".strip()
+
+    async def async_update(self):
+        """Fetch latest data from NEA."""
+        await self.hass.async_add_executor_job(self.nea_data.update)
+
+    @property
+    def native_value(self):
+        """Return the current reading for the configured location."""
+        return self.nea_data.get_reading(self.location_name)
+
+    @property
+    def state(self):
+        """Return state for older Home Assistant versions."""
+        return self.native_value
