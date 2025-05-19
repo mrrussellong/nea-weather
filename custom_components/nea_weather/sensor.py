@@ -1,6 +1,5 @@
 """Support for Meteorological Service Singapore weather service."""
 import datetime
-import json
 import logging
 import time
 import pytz
@@ -9,11 +8,8 @@ import voluptuous as vol
 import homeassistant.helpers.config_validation as cv
 import homeassistant.util.dt as dt_util
 
-from homeassistant.components.sensor import PLATFORM_SCHEMA
-from homeassistant.const import (
-    CONF_NAME,
-)
-from homeassistant.helpers.entity import Entity
+from homeassistant.components.sensor import PLATFORM_SCHEMA, SensorEntity
+from homeassistant.const import CONF_NAME
 from homeassistant.util import Throttle
 from datetime import datetime as dt
 
@@ -25,16 +21,17 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
     vol.Optional(CONF_NAME): cv.string,
 })
 
-def setup_platform(hass, config, add_entities, discovery_info=None):
+async def async_setup_platform(hass, config, async_add_entities, discovery_info=None):
+    """Set up the NEA sensor platform."""
     nea_data = NEACurrentData()
 
     try:
-        nea_data.update()
+        await hass.async_add_executor_job(nea_data.update)
     except ValueError as err:
         _LOGGER.error("Received error from NEA Current: %s", err)
         return
 
-    add_entities([NEACurrentData()])
+    async_add_entities([NEAWeatherSensor(nea_data, config.get(CONF_NAME))])
 
 
 class NEACurrentData:
@@ -121,3 +118,26 @@ class NEACurrentData:
             self._forecast_data = None
             self._today_data = None
             raise
+
+
+class NEAWeatherSensor(SensorEntity):
+    """Sensor wrapping NEA current weather data."""
+
+    def __init__(self, nea_data, location_name):
+        self.nea_data = nea_data
+        self._location_name = location_name
+
+    async def async_update(self):
+        await self.hass.async_add_executor_job(self.nea_data.update)
+
+    @property
+    def name(self):
+        return f"NEA Forecast {self._location_name or ''}".strip()
+
+    @property
+    def state(self):
+        return self.nea_data.get_reading(self._location_name)
+
+    @property
+    def extra_state_attributes(self):
+        return {"last_updated": self.nea_data.get_last_updated_at()}
